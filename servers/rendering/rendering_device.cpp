@@ -7347,6 +7347,22 @@ void RenderingDevice::_free_rids(T &p_owner, const char *p_type) {
 	}
 }
 
+void RenderingDevice::_print_leaked_texture_info(RID p_texture_rid, bool p_shared) {
+	String line = String(" - ") + (p_shared ? "[shared] " : "") + itos(p_texture_rid.get_id());
+	Texture *tex = texture_owner.get_or_null(p_texture_rid);
+	if (tex) {
+		line += vformat(" %dx%dx%d layers=%d mips=%d fmt=%d usage=0x%x",
+				tex->width, tex->height, tex->depth, tex->layers, tex->mipmaps,
+				(int)tex->format, (uint32_t)tex->usage_flags);
+	}
+#ifdef DEV_ENABLED
+	if (resource_names.has(p_texture_rid)) {
+		line += String(" name=") + resource_names[p_texture_rid];
+	}
+#endif
+	print_line(line);
+}
+
 void RenderingDevice::capture_timestamp(const String &p_name) {
 	ERR_RENDER_THREAD_GUARD();
 
@@ -7550,11 +7566,7 @@ void RenderingDevice::finalize() {
 			// Free shared first.
 			for (const RID &texture_rid : owned) {
 				if (texture_is_shared(texture_rid)) {
-#ifdef DEV_ENABLED
-					if (resource_names.has(texture_rid)) {
-						print_line(String(" - ") + resource_names[texture_rid]);
-					}
-#endif
+					_print_leaked_texture_info(texture_rid, true);
 					free_rid(texture_rid);
 				} else {
 					owned_non_shared.push_back(texture_rid);
@@ -7562,11 +7574,7 @@ void RenderingDevice::finalize() {
 			}
 			// Free non shared second, this will avoid an error trying to free unexisting textures due to dependencies.
 			for (const RID &texture_rid : owned_non_shared) {
-#ifdef DEV_ENABLED
-				if (resource_names.has(texture_rid)) {
-					print_line(String(" - ") + resource_names[texture_rid]);
-				}
-#endif
+				_print_leaked_texture_info(texture_rid, false);
 				free_rid(texture_rid);
 			}
 		}

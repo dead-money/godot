@@ -1667,6 +1667,8 @@ public:
 	template <typename T>
 	void _free_rids(T &p_owner, const char *p_type);
 
+	void _print_leaked_texture_info(RID p_texture_rid, bool p_shared);
+
 #ifdef DEV_ENABLED
 	HashMap<RID, String> resource_names;
 #endif
