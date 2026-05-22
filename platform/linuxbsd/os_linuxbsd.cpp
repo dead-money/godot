@@ -1304,12 +1304,26 @@ OS_LinuxBSD::OS_LinuxBSD() {
 	AudioDriverManager::add_driver(&driver_alsa);
 #endif
 
+	// DEAD MONEY: prefer the Wayland backend on Wayland sessions. The X11
+	// path goes through XWayland on GNOME/Mutter, which silently ignores
+	// programmatic shrink requests (XResizeWindow) once the user has
+	// dragged the window. First-registered becomes the default.
+#if defined(WAYLAND_ENABLED) && defined(X11_ENABLED)
+	bool prefer_wayland = OS::get_singleton()->get_environment("XDG_SESSION_TYPE").to_lower() == "wayland";
+	if (prefer_wayland) {
+		DisplayServerWayland::register_wayland_driver();
+		DisplayServerX11::register_x11_driver();
+	} else {
+		DisplayServerX11::register_x11_driver();
+		DisplayServerWayland::register_wayland_driver();
+	}
+#else
 #ifdef X11_ENABLED
 	DisplayServerX11::register_x11_driver();
 #endif
-
 #ifdef WAYLAND_ENABLED
 	DisplayServerWayland::register_wayland_driver();
+#endif
 #endif
 
 #ifdef FONTCONFIG_ENABLED
