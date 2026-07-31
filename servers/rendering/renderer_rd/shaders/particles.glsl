@@ -68,7 +68,7 @@ struct FrameParams {
 
 	uint frame;
 	float amount_ratio;
-	uint pad1;
+	uint flip_h; // DEAD MONEY: was pad1
 	uint pad2;
 
 	uint random_seed;

@@ -728,7 +728,7 @@ void ParticleProcessMaterial::_update_shader() {
 			code += "		vec3 pos = transform[3].xyz;\n";
 			code += "		vec3 org = emission_transform[3].xyz;\n";
 			code += "		vec3 diff = pos - org;\n";
-			code += "		float ang = orbit_amount * pi * 2.0 * delta;\n";
+			code += "		float ang = (FLIP_H ? -1.0 : 1.0) * orbit_amount * pi * 2.0 * delta; // DEAD MONEY\n";
 			code += "		mat2 rot = mat2(vec2(cos(ang), -sin(ang)), vec2(sin(ang), cos(ang)));\n";
 			code += "		displacement.xy -= diff.xy;\n";
 			code += "		displacement.xy += rot * diff.xy;\n";
@@ -737,11 +737,12 @@ void ParticleProcessMaterial::_update_shader() {
 			code += "	vec3 orbit_velocities = vec3(param.orbit_velocity);\n";
 			code += "	orbit_velocities *= texture(orbit_velocity_curve, vec2(lifetime)).rgb;\n";
 			code += "	orbit_velocities *= pi * 2.0;\n";
-			code += "	orbit_velocities *= delta; // We wanna process those by the delta angle.\n\n";
+			code += "	orbit_velocities *= delta; // We wanna process those by the delta angle.\n";
+			code += "	if (FLIP_H) { orbit_velocities.yz = -orbit_velocities.yz; } // DEAD MONEY\n\n";
 
 			code += "	// X axis.\n";
 			code += "	vec3 local_pos = (inverse(emission_transform) * transform[3]).xyz;\n";
-			code += "	local_pos -= velocity_pivot;\n";
+			code += "	local_pos -= FLIP_H ? vec3(-velocity_pivot.x, velocity_pivot.y, velocity_pivot.z) : velocity_pivot; // DEAD MONEY\n";
 			code += "	local_pos.x = 0.0;\n";
 			code += "	mat3 x_rotation_mat = mat3(\n";
 			code += "		vec3(1.0, 0.0, 0.0),\n";
@@ -753,7 +754,7 @@ void ParticleProcessMaterial::_update_shader() {
 
 			code += "	// Y axis.\n";
 			code += "	local_pos = (inverse(emission_transform) * transform[3]).xyz;\n";
-			code += "	local_pos -= velocity_pivot;\n";
+			code += "	local_pos -= FLIP_H ? vec3(-velocity_pivot.x, velocity_pivot.y, velocity_pivot.z) : velocity_pivot; // DEAD MONEY\n";
 			code += "	local_pos.y = 0.0;\n";
 			code += "	mat3 y_rotation_mat = mat3(\n";
 			code += "		vec3(cos(orbit_velocities.y), 0.0, -sin(orbit_velocities.y)),\n";
@@ -765,7 +766,7 @@ void ParticleProcessMaterial::_update_shader() {
 
 			code += "	// Z axis.\n";
 			code += "	local_pos = (inverse(emission_transform) * transform[3]).xyz;\n";
-			code += "	local_pos -= velocity_pivot;\n";
+			code += "	local_pos -= FLIP_H ? vec3(-velocity_pivot.x, velocity_pivot.y, velocity_pivot.z) : velocity_pivot; // DEAD MONEY\n";
 			code += "	local_pos.z = 0.0;\n";
 			code += "	mat3 z_rotation_mat = mat3(\n";
 			code += "		vec3(cos(orbit_velocities.z), sin(orbit_velocities.z), 0.0),\n";
@@ -820,7 +821,7 @@ void ParticleProcessMaterial::_update_shader() {
 	if (tex_parameters[PARAM_RADIAL_VELOCITY].is_valid()) {
 		code += "	radial_displacement_multiplier = texture(radial_velocity_curve, vec2(lifetime)).r;\n";
 	}
-	code += "	vec3 global_pivot = (emission_transform * vec4(velocity_pivot, 1.0)).xyz;\n";
+	code += "	vec3 global_pivot = (emission_transform * vec4(FLIP_H ? vec3(-velocity_pivot.x, velocity_pivot.y, velocity_pivot.z) : velocity_pivot, 1.0)).xyz; // DEAD MONEY\n";
 	code += "	if (length(transform[3].xyz - global_pivot) > 0.01) {\n";
 	code += "		radial_displacement = normalize(transform[3].xyz - global_pivot) * radial_displacement_multiplier * param.radial_velocity;\n";
 	code += "	} else {\n";
@@ -836,6 +837,7 @@ void ParticleProcessMaterial::_update_shader() {
 	if (tex_parameters[PARAM_DIRECTIONAL_VELOCITY].is_valid()) {
 		code += "vec3 process_directional_displacement(DynamicsParameters param, float lifetime_percent, mat4 transform, mat4 emission_transform) {\n";
 		code += "	vec3 displacement = texture(directional_velocity_curve, vec2(lifetime_percent)).xyz * param.directional_velocity;\n";
+		code += "	if (FLIP_H) { displacement.x = -displacement.x; } // DEAD MONEY\n";
 		if (directional_velocity_global) {
 			code += "	displacement = (emission_transform * vec4(displacement, 0.0)).xyz;\n";
 		}
@@ -892,8 +894,12 @@ void ParticleProcessMaterial::_update_shader() {
 	if (turbulence_enabled) {
 		code += "		float initial_turbulence_displacement = mix(turbulence_initial_displacement_min, turbulence_initial_displacement_max, rand_from_seed(alt_seed));\n";
 		code += "		vec3 noise_direction = get_noise_direction(TRANSFORM[3].xyz);\n";
+		code += "		if (FLIP_H) { noise_direction.x = -noise_direction.x; } // DEAD MONEY\n";
 		code += "		TRANSFORM[3].xyz += noise_direction * initial_turbulence_displacement;\n";
 	}
+	code += "		if (FLIP_H) { // DEAD MONEY\n";
+	code += "			TRANSFORM[3].x = -TRANSFORM[3].x;\n";
+	code += "		}\n";
 	code += "		TRANSFORM = EMISSION_TRANSFORM * TRANSFORM;\n";
 	code += "	}\n";
 	code += "	if (RESTART_VELOCITY) {\n";
@@ -921,6 +927,7 @@ void ParticleProcessMaterial::_update_shader() {
 	}
 	code += "	}\n\n";
 	code += "	process_display_param(params, 0.0);\n\n";
+	code += "	if (FLIP_H) { VELOCITY.x = -VELOCITY.x; } // DEAD MONEY\n";
 	code += "	VELOCITY = (EMISSION_TRANSFORM * vec4(VELOCITY, 0.0)).xyz;\n";
 	code += "	VELOCITY += EMITTER_VELOCITY * inherit_emitter_velocity_ratio;\n";
 	if (particle_flags[PARTICLE_FLAG_DISABLE_Z]) {
@@ -980,7 +987,7 @@ void ParticleProcessMaterial::_update_shader() {
 	code += "		vec3 diff = pos - org;\n";
 	code += "		force += length(diff) > 0.0 ? normalize(diff) * physics_params.radial_accel : vec3(0.0);\n";
 	code += "		// Apply tangential acceleration.\n";
-	code += "		float tangent_accel_val = physics_params.tangent_accel;\n";
+	code += "		float tangent_accel_val = physics_params.tangent_accel * (FLIP_H ? -1.0 : 1.0); // DEAD MONEY\n";
 	if (particle_flags[PARTICLE_FLAG_DISABLE_Z]) {
 		code += "		force += length(diff.yx) > 0.0 ? vec3(normalize(diff.yx * vec2(-1.0, 1.0)), 0.0) * tangent_accel_val : vec3(0.0);\n";
 	} else {
@@ -1085,7 +1092,7 @@ void ParticleProcessMaterial::_update_shader() {
 	} else {
 		code += "	base_angle += CUSTOM.y * LIFETIME * dynamic_params.angular_velocity;\n";
 	}
-	code += "	CUSTOM.x = base_angle * degree_to_rad;\n";
+	code += "	CUSTOM.x = (FLIP_H ? -base_angle : base_angle) * degree_to_rad; // DEAD MONEY\n";
 	code += "	COLOR = params.color;\n\n";
 
 	if (particle_flags[PARTICLE_FLAG_DISABLE_Z]) {
@@ -1144,7 +1151,7 @@ void ParticleProcessMaterial::_update_shader() {
 	// A scale of 0 results in no emission at some emission amounts (including 3 and 6).
 	// `sign(scale)` is unsuitable, because sign(0) returns 0, nullifying the minimum value.
 	// The following evaluates to 1 when scale is 0, falling back to a positive minimum value.
-	code += "	float scale_sign_x = params.scale.x < 0.0 ? -1.0 : 1.0;\n";
+	code += "	float scale_sign_x = (params.scale.x < 0.0 ? -1.0 : 1.0) * (FLIP_H ? -1.0 : 1.0); // DEAD MONEY\n";
 	code += "	float scale_sign_y = params.scale.y < 0.0 ? -1.0 : 1.0;\n";
 	code += "	float scale_sign_z = params.scale.z < 0.0 ? -1.0 : 1.0;\n";
 	code += "	float scale_minimum = 0.001;\n";

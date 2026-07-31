@@ -113,15 +113,24 @@ void GPUParticles2D::set_randomness_ratio(real_t p_ratio) {
 
 void GPUParticles2D::set_visibility_rect(const Rect2 &p_visibility_rect) {
 	visibility_rect = p_visibility_rect;
+	_push_visibility_rect();
+	queue_redraw();
+}
+
+// DEAD MONEY: the authored rect describes the unflipped effect; a flipped
+// simulation needs the X-mirrored rect or asymmetric plumes cull early.
+void GPUParticles2D::_push_visibility_rect() {
+	Rect2 rect = visibility_rect;
+	if (flip_h) {
+		rect.position.x = -(visibility_rect.position.x + visibility_rect.size.x);
+	}
 	AABB aabb;
-	aabb.position.x = p_visibility_rect.position.x;
-	aabb.position.y = p_visibility_rect.position.y;
-	aabb.size.x = p_visibility_rect.size.x;
-	aabb.size.y = p_visibility_rect.size.y;
+	aabb.position.x = rect.position.x;
+	aabb.position.y = rect.position.y;
+	aabb.size.x = rect.size.x;
+	aabb.size.y = rect.size.y;
 
 	RS::get_singleton()->particles_set_custom_aabb(particles, aabb);
-
-	queue_redraw();
 }
 
 void GPUParticles2D::set_use_local_coordinates(bool p_enable) {
@@ -181,6 +190,15 @@ void GPUParticles2D::set_inherit_scale(bool p_enable) {
 bool GPUParticles2D::get_inherit_position() const { return inherit_position; }
 bool GPUParticles2D::get_inherit_rotation() const { return inherit_rotation; }
 bool GPUParticles2D::get_inherit_scale() const { return inherit_scale; }
+
+// DEAD MONEY: mirror the simulation across the emitter's local Y axis.
+void GPUParticles2D::set_flip_h(bool p_enable) {
+	flip_h = p_enable;
+	RS::get_singleton()->particles_set_flip_h(particles, flip_h);
+	_push_visibility_rect();
+	queue_redraw();
+}
+bool GPUParticles2D::get_flip_h() const { return flip_h; }
 
 void GPUParticles2D::_update_particle_emission_transform() {
 	Transform2D xf2d = get_global_transform();
@@ -923,9 +941,11 @@ void GPUParticles2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_inherit_position", "enable"), &GPUParticles2D::set_inherit_position);
 	ClassDB::bind_method(D_METHOD("set_inherit_rotation", "enable"), &GPUParticles2D::set_inherit_rotation);
 	ClassDB::bind_method(D_METHOD("set_inherit_scale", "enable"), &GPUParticles2D::set_inherit_scale);
+	ClassDB::bind_method(D_METHOD("set_flip_h", "enable"), &GPUParticles2D::set_flip_h); // DEAD MONEY
 	ClassDB::bind_method(D_METHOD("get_inherit_position"), &GPUParticles2D::get_inherit_position);
 	ClassDB::bind_method(D_METHOD("get_inherit_rotation"), &GPUParticles2D::get_inherit_rotation);
 	ClassDB::bind_method(D_METHOD("get_inherit_scale"), &GPUParticles2D::get_inherit_scale);
+	ClassDB::bind_method(D_METHOD("get_flip_h"), &GPUParticles2D::get_flip_h); // DEAD MONEY
 	ClassDB::bind_method(D_METHOD("set_fixed_fps", "fps"), &GPUParticles2D::set_fixed_fps);
 	ClassDB::bind_method(D_METHOD("set_fractional_delta", "enable"), &GPUParticles2D::set_fractional_delta);
 	ClassDB::bind_method(D_METHOD("set_interpolate", "enable"), &GPUParticles2D::set_interpolate);
@@ -1024,6 +1044,7 @@ void GPUParticles2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "inherit_position"), "set_inherit_position", "get_inherit_position");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "inherit_rotation"), "set_inherit_rotation", "get_inherit_rotation");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "inherit_scale"), "set_inherit_scale", "get_inherit_scale");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "flip_h"), "set_flip_h", "get_flip_h"); // DEAD MONEY
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "draw_order", PROPERTY_HINT_ENUM, "Index,Lifetime,Reverse Lifetime"), "set_draw_order", "get_draw_order");
 	ADD_GROUP("Trails", "trail_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "trail_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_trail_enabled", "is_trail_enabled");

@@ -1474,6 +1474,7 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["INTERPOLATE_TO_END"] = "interp_to_end";
 
 		// These are unsupported, but may be used by users. To avoid compile time overhead, we add the stub only when used.
+		actions.renames["FLIP_H"] = "false"; // DEAD MONEY: unsupported on GLES3
 		actions.renames["FLAG_EMIT_POSITION"] = "uint(1)";
 		actions.renames["FLAG_EMIT_ROT_SCALE"] = "uint(2)";
 		actions.renames["FLAG_EMIT_VELOCITY"] = "uint(4)";

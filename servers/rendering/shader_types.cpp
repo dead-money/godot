@@ -385,6 +385,7 @@ ShaderTypes::ShaderTypes() {
 	/************ PARTICLES **************************/
 
 	shader_modes[RS::SHADER_PARTICLES].functions["global"].built_ins["TIME"] = constt(ShaderLanguage::TYPE_FLOAT);
+	shader_modes[RS::SHADER_PARTICLES].functions["global"].built_ins["FLIP_H"] = constt(ShaderLanguage::TYPE_BOOL); // DEAD MONEY
 	shader_modes[RS::SHADER_PARTICLES].functions["constants"].built_ins["PI"] = constt(ShaderLanguage::TYPE_FLOAT);
 	shader_modes[RS::SHADER_PARTICLES].functions["constants"].built_ins["TAU"] = constt(ShaderLanguage::TYPE_FLOAT);
 	shader_modes[RS::SHADER_PARTICLES].functions["constants"].built_ins["E"] = constt(ShaderLanguage::TYPE_FLOAT);

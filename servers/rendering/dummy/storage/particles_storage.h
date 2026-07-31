@@ -58,6 +58,7 @@ public:
 	virtual void particles_set_speed_scale(RID p_particles, double p_scale) override {}
 	virtual void particles_set_use_local_coordinates(RID p_particles, bool p_enable) override {}
 	virtual void particles_set_inherit_flags(RID p_particles, uint32_t p_flags) override {} // DEAD MONEY
+	virtual void particles_set_flip_h(RID p_particles, bool p_enable) override {} // DEAD MONEY
 	virtual void particles_set_process_material(RID p_particles, RID p_material) override {}
 	virtual RID particles_get_process_material(RID p_particles) const override { return RID(); }
 	virtual void particles_set_fixed_fps(RID p_particles, int p_fps) override {}

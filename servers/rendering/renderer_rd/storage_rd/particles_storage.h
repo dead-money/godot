@@ -124,7 +124,7 @@ private:
 
 		uint32_t frame;
 		float amount_ratio;
-		uint32_t pad1;
+		uint32_t flip_h; // DEAD MONEY: was pad1
 		uint32_t pad2;
 
 		uint32_t random_seed;
@@ -178,6 +178,7 @@ private:
 		// honour the split. Auxiliary sites (collision, sort axis, AABB capture)
 		// treat any non-ALL state as world-coords.
 		uint32_t inherit_flags = RS::PARTICLES_INHERIT_ALL;
+		bool flip_h = false; // DEAD MONEY
 		// DEAD MONEY: cached at simulate-path entry; consumed at copy/draw.
 		Transform3D draw_inv_emission_transform;
 		bool has_collision_cache = false;
@@ -460,6 +461,7 @@ public:
 	virtual void particles_set_speed_scale(RID p_particles, double p_scale) override;
 	virtual void particles_set_use_local_coordinates(RID p_particles, bool p_enable) override;
 	virtual void particles_set_inherit_flags(RID p_particles, uint32_t p_flags) override; // DEAD MONEY
+	virtual void particles_set_flip_h(RID p_particles, bool p_enable) override; // DEAD MONEY
 	virtual void particles_set_process_material(RID p_particles, RID p_material) override;
 	virtual RID particles_get_process_material(RID p_particles) const override;
 

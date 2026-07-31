@@ -65,6 +65,8 @@ private:
 	bool inherit_position = true;
 	bool inherit_rotation = true;
 	bool inherit_scale = true;
+	// DEAD MONEY: engine-level horizontal mirror of the emitter's simulation.
+	bool flip_h = false;
 	int fixed_fps = 0;
 	bool fractional_delta = false;
 	bool interpolate = true;
@@ -130,9 +132,12 @@ public:
 	void set_inherit_position(bool p_enable);
 	void set_inherit_rotation(bool p_enable);
 	void set_inherit_scale(bool p_enable);
+	void set_flip_h(bool p_enable); // DEAD MONEY
+	void _push_visibility_rect(); // DEAD MONEY
 	bool get_inherit_position() const;
 	bool get_inherit_rotation() const;
 	bool get_inherit_scale() const;
+	bool get_flip_h() const; // DEAD MONEY
 	void set_process_material(const Ref<Material> &p_material);
 	void set_speed_scale(double p_scale);
 	void set_collision_base_size(real_t p_ratio);
