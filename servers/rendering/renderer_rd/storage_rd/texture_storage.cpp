@@ -4251,6 +4251,11 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 		RD::get_singleton()->free_rid(rt->color_multisample);
 	}
 
+	for (Ref<Texture2DRD> &wrapper : rt->mrt_aux_wrappers) {
+		if (wrapper.is_valid()) {
+			wrapper->_clear_texture_rd_rid();
+		}
+	}
 	for (RID aux : rt->mrt_aux_color) {
 		if (aux.is_valid()) {
 			RD::get_singleton()->free_rid(aux);
@@ -4356,6 +4361,12 @@ void TextureStorage::_update_render_target(RenderTarget *rt) {
 		aux_textures.push_back(aux);
 	}
 	rt->mrt_aux_color = aux_textures;
+	for (int i = 0; i < rt->mrt_aux_wrappers.size(); i++) {
+		Ref<Texture2DRD> &wrapper = rt->mrt_aux_wrappers.write[i];
+		if (wrapper.is_valid() && i < rt->mrt_aux_color.size()) {
+			wrapper->_set_texture_rd_rid(rt->mrt_aux_color[i]);
+		}
+	}
 
 	if (rt->msaa != RSE::VIEWPORT_MSAA_DISABLED) {
 		// Use the texture format of the color attachment for the multisample color attachment.
@@ -4806,6 +4817,22 @@ RID TextureStorage::render_target_get_aux_color(RID p_render_target, int p_index
 	ERR_FAIL_NULL_V(rt, RID());
 	ERR_FAIL_INDEX_V(p_index, rt->mrt_aux_color.size(), RID());
 	return rt->mrt_aux_color[p_index];
+}
+
+Ref<Texture2D> TextureStorage::render_target_get_aux_texture_2d(RID p_render_target, int p_index) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, Ref<Texture2D>());
+	ERR_FAIL_INDEX_V(p_index, rt->mrt_aux_color.size(), Ref<Texture2D>());
+
+	if (rt->mrt_aux_wrappers.size() <= p_index) {
+		rt->mrt_aux_wrappers.resize(p_index + 1);
+	}
+	Ref<Texture2DRD> &wrapper = rt->mrt_aux_wrappers.write[p_index];
+	if (wrapper.is_null()) {
+		wrapper.instantiate();
+		wrapper->_set_texture_rd_rid(rt->mrt_aux_color[p_index]);
+	}
+	return wrapper;
 }
 
 int TextureStorage::render_target_get_aux_count(RID p_render_target) {

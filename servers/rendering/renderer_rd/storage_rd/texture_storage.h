@@ -32,6 +32,7 @@
 
 #include "core/templates/paged_array.h"
 #include "core/templates/rid_owner.h"
+#include "scene/resources/texture_rd.h"
 #include "servers/rendering/renderer_rd/shaders/canvas_sdf.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/tex_blit.glsl.gen.h"
 #include "servers/rendering/renderer_rd/storage_rd/forward_id_storage.h"
@@ -456,6 +457,7 @@ private:
 		Vector<RD::DataFormat> mrt_formats;
 		Vector<RID> mrt_aux_color;
 		Vector<Color> mrt_clear_colors;
+		Vector<Ref<Texture2DRD>> mrt_aux_wrappers;
 
 		// overridden textures
 		struct RTOverridden {
@@ -960,6 +962,7 @@ public:
 		const Vector<RD::DataFormat> &p_formats,
 		const Vector<Color> &p_clear_colors);
 	virtual RID render_target_get_aux_color(RID p_render_target, int p_index) override;
+	Ref<Texture2D> render_target_get_aux_texture_2d(RID p_render_target, int p_index) override;
 	int render_target_get_aux_count(RID p_render_target);
 	const Vector<Color> &render_target_get_mrt_clear_colors(RID p_render_target);
 };

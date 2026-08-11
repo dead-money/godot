@@ -36,6 +36,7 @@
 #include "core/object/class_db.h"
 #include "core/os/os.h"
 #include "core/variant/typed_array.h"
+#include "scene/resources/texture.h"
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/rendering_server_types.h"
 #include "servers/rendering/shader_language.h"
@@ -2873,6 +2874,7 @@ void RenderingServer::_bind_methods() {
 	// DEAD MONEY: canvas_item MRT bindings.
 	ClassDB::bind_method(D_METHOD("viewport_set_mrt_attachments", "viewport", "formats", "clear_colors"), &RenderingServer::viewport_set_mrt_attachments);
 	ClassDB::bind_method(D_METHOD("viewport_get_aux_texture", "viewport", "index"), &RenderingServer::viewport_get_aux_texture);
+	ClassDB::bind_method(D_METHOD("viewport_get_aux_texture2d", "viewport", "index"), &RenderingServer::viewport_get_aux_texture_2d);
 	ClassDB::bind_method(D_METHOD("viewport_set_disable_3d", "viewport", "disable"), &RenderingServer::viewport_set_disable_3d);
 	ClassDB::bind_method(D_METHOD("viewport_set_disable_2d", "viewport", "disable"), &RenderingServer::viewport_set_disable_2d);
 	ClassDB::bind_method(D_METHOD("viewport_set_environment_mode", "viewport", "mode"), &RenderingServer::viewport_set_environment_mode);

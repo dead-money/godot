@@ -34,6 +34,7 @@
 #include "core/os/thread.h"
 #include "core/templates/command_queue_mt.h"
 #include "core/templates/hash_map.h"
+#include "scene/resources/texture.h"
 #include "servers/rendering/renderer_canvas_cull.h"
 #include "servers/rendering/renderer_compositor.h"
 #include "servers/rendering/renderer_viewport.h"
@@ -761,6 +762,7 @@ public:
 	// DEAD MONEY: canvas_item MRT API forwarders.
 	FUNC3(viewport_set_mrt_attachments, RID, const Vector<int> &, const Vector<Color> &)
 	FUNC2RC(RID, viewport_get_aux_texture, RID, int)
+	FUNC2R(Ref<Texture2D>, viewport_get_aux_texture_2d, RID, int)
 
 	FUNC2(viewport_set_disable_2d, RID, bool)
 	FUNC2(viewport_set_environment_mode, RID, RSE::ViewportEnvironmentMode)

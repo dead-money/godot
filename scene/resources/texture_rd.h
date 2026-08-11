@@ -61,6 +61,7 @@ public:
 
 	// Internal function that should only be called from the rendering thread.
 	void _set_texture_rd_rid(RID p_texture_rd_rid);
+	void _clear_texture_rd_rid();
 
 	Texture2DRD();
 	~Texture2DRD();

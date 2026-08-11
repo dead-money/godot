@@ -114,6 +114,19 @@ void Texture2DRD::_set_texture_rd_rid(RID p_texture_rd_rid) {
 	emit_changed();
 }
 
+void Texture2DRD::_clear_texture_rd_rid() {
+	ERR_FAIL_NULL(RS::get_singleton());
+
+	texture_rd_rid = RID();
+	size = Size2i();
+	if (texture_rid.is_valid()) {
+		RS::get_singleton()->texture_replace(texture_rid, RS::get_singleton()->texture_2d_placeholder_create());
+	}
+
+	notify_property_list_changed();
+	emit_changed();
+}
+
 RID Texture2DRD::get_texture_rd_rid() const {
 	return texture_rd_rid;
 }

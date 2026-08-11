@@ -33,6 +33,8 @@
 #include "servers/rendering/rendering_server_enums.h"
 #include "servers/rendering/rendering_server_types.h"
 
+class Texture2D;
+
 class RendererTextureStorage {
 private:
 	Color default_clear_color;
@@ -207,6 +209,7 @@ public:
 
 	virtual void render_target_set_mrt_attachments(RID p_render_target, const Vector<int> &p_formats, const Vector<Color> &p_clear_colors) {}
 	virtual RID render_target_get_aux_color(RID p_render_target, int p_index) { return RID(); }
+	virtual Ref<Texture2D> render_target_get_aux_texture_2d(RID p_render_target, int p_index) { return Ref<Texture2D>(); }
 
 	// get textures
 	virtual RID render_target_get_texture(RID p_render_target) = 0;
