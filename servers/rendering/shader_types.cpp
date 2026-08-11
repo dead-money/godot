@@ -308,6 +308,13 @@ ShaderTypes::ShaderTypes() {
 	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["SCREEN_PIXEL_SIZE"] = constt(ShaderLanguage::TYPE_VEC2);
 	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["POINT_COORD"] = constt(ShaderLanguage::TYPE_VEC2);
 	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["AT_LIGHT_PASS"] = constt(ShaderLanguage::TYPE_BOOL);
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_1"] = ShaderLanguage::TYPE_VEC4;
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_2"] = ShaderLanguage::TYPE_VEC4;
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_3"] = ShaderLanguage::TYPE_VEC4;
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_4"] = ShaderLanguage::TYPE_VEC4;
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_5"] = ShaderLanguage::TYPE_VEC4;
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_6"] = ShaderLanguage::TYPE_VEC4;
+	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].built_ins["OUT_7"] = ShaderLanguage::TYPE_VEC4;
 	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].can_discard = true;
 	shader_modes[RSE::SHADER_CANVAS_ITEM].functions["fragment"].main_function = true;
 
@@ -361,6 +368,11 @@ ShaderTypes::ShaderTypes() {
 		shader_modes[RSE::SHADER_CANVAS_ITEM].modes.push_back({ PNAME("unshaded") });
 		shader_modes[RSE::SHADER_CANVAS_ITEM].modes.push_back({ PNAME("light_only") });
 		shader_modes[RSE::SHADER_CANVAS_ITEM].modes.push_back({ PNAME("world_vertex_coords") });
+		for (int i = 1; i <= 7; i++) {
+			shader_modes[RSE::SHADER_CANVAS_ITEM].modes.push_back({ PNAME("mrt_blend_" + itos(i)),
+					{ StringName("mix"), StringName("add"), StringName("sub"), StringName("mul"),
+							StringName("premul_alpha"), StringName("disabled"), StringName("max") } });
+		}
 	}
 
 	/************ PARTICLES **************************/

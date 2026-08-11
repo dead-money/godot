@@ -560,6 +560,8 @@ public:
 
 	virtual RID viewport_get_render_target(RID p_viewport) const = 0;
 	virtual RID viewport_get_texture(RID p_viewport) const = 0;
+	virtual void viewport_set_mrt_attachments(RID p_viewport, const Vector<int> &p_formats, const Vector<Color> &p_clear_colors) = 0;
+	virtual RID viewport_get_aux_texture(RID p_viewport, int p_index) const = 0;
 
 	virtual void viewport_set_environment_mode(RID p_viewport, RSE::ViewportEnvironmentMode p_mode) = 0;
 	virtual void viewport_set_disable_3d(RID p_viewport, bool p_disable) = 0;

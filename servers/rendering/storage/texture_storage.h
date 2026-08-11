@@ -205,6 +205,9 @@ public:
 	virtual void render_target_set_subsampled_allowed(RID p_render_target, bool p_allowed) = 0;
 	virtual bool render_target_is_subsampled_allowed(RID p_render_target) const = 0;
 
+	virtual void render_target_set_mrt_attachments(RID p_render_target, const Vector<int> &p_formats, const Vector<Color> &p_clear_colors) {}
+	virtual RID render_target_get_aux_color(RID p_render_target, int p_index) { return RID(); }
+
 	// get textures
 	virtual RID render_target_get_texture(RID p_render_target) = 0;
 

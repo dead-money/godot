@@ -400,7 +400,7 @@ private:
 
 	struct RenderTarget {
 		Size2i size;
-		uint32_t view_count;
+		uint32_t view_count = 1;
 		RID color;
 		Vector<RID> color_slices;
 		RID color_multisample; // Needed when 2D MSAA is enabled.
@@ -445,6 +445,17 @@ private:
 		Rect2i render_region;
 		bool subsampled_enabled = false;
 		bool subsampled_allowed = true;
+
+		// DEAD MONEY: canvas_item MRT — auxiliary color attachments. When
+		// `mrt_aux_color` is non-empty, get_framebuffer() returns a multi-
+		// attachment framebuffer with `color` at location 0 and the aux
+		// textures at locations 1..N. MSAA is forced off when MRT is on
+		// (per-aux MSAA + resolves not implemented in the minimum patch).
+		// Per-attachment blend mode is owned by the canvas shader's
+		// `mrt_blend_<N>_<mode>` render_mode tokens, not stored here.
+		Vector<RD::DataFormat> mrt_formats;
+		Vector<RID> mrt_aux_color;
+		Vector<Color> mrt_clear_colors;
 
 		// overridden textures
 		struct RTOverridden {
@@ -933,6 +944,24 @@ public:
 
 	static RD::DataFormat render_target_get_color_format(bool p_use_hdr, bool p_srgb);
 	static uint32_t render_target_get_color_usage_bits(bool p_msaa);
+
+	// DEAD MONEY: canvas_item MRT API.
+	// Configures up to 7 auxiliary color attachments. Reconfiguring forces
+	// the render target to rebuild its textures + framebuffer cache.
+	// Forces MSAA off when called with non-empty p_formats.
+	//
+	// `_int` overload routes RD::DataFormat values from the abstract
+	// `RendererTextureStorage` interface; the typed `RD::DataFormat`
+	// overload is the internal-use API for callers that already speak RD.
+	virtual void render_target_set_mrt_attachments(RID p_render_target,
+		const Vector<int> &p_formats,
+		const Vector<Color> &p_clear_colors) override;
+	void render_target_set_mrt_attachments_typed(RID p_render_target,
+		const Vector<RD::DataFormat> &p_formats,
+		const Vector<Color> &p_clear_colors);
+	virtual RID render_target_get_aux_color(RID p_render_target, int p_index) override;
+	int render_target_get_aux_count(RID p_render_target);
+	const Vector<Color> &render_target_get_mrt_clear_colors(RID p_render_target);
 };
 
 } // namespace RendererRD

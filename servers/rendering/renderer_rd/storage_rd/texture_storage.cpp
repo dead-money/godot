@@ -4210,6 +4210,14 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 RID TextureStorage::RenderTarget::get_framebuffer() {
 	// We can't resolve into our overridden buffer as it won't be marked as a resolve buffer.
 	// This is only applicable when OpenXR is used and 2D rendering is skipped.
+	if (!mrt_aux_color.is_empty()) {
+		Vector<RID> attachments;
+		attachments.push_back(overridden.color.is_valid() ? overridden.color : color);
+		for (RID aux : mrt_aux_color) {
+			attachments.push_back(aux);
+		}
+		return FramebufferCacheRD::get_singleton()->get_cache_multipass(attachments, Vector<RD::FramebufferPass>(), view_count);
+	}
 
 	if (msaa != RSE::VIEWPORT_MSAA_DISABLED && overridden.color.is_null()) {
 		// Render into our MSAA buffer and resolve into our color buffer.
@@ -4242,6 +4250,13 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 	if (rt->color_multisample.is_valid()) {
 		RD::get_singleton()->free_rid(rt->color_multisample);
 	}
+
+	for (RID aux : rt->mrt_aux_color) {
+		if (aux.is_valid()) {
+			RD::get_singleton()->free_rid(aux);
+		}
+	}
+	rt->mrt_aux_color.clear();
 
 	if (rt->backbuffer.is_valid()) {
 		RD::get_singleton()->free_rid(rt->backbuffer);
@@ -4315,6 +4330,32 @@ void TextureStorage::_update_render_target(RenderTarget *rt) {
 	// TODO see if we can lazy create this once we actually use it as we may not need to create this if we have an overridden color buffer...
 	rt->color = RD::get_singleton()->texture_create(rd_color_attachment_format, rd_view);
 	ERR_FAIL_COND(rt->color.is_null());
+
+	Vector<RID> aux_textures;
+	for (RD::DataFormat format : rt->mrt_formats) {
+		RD::TextureFormat aux_format;
+		aux_format.format = format;
+		aux_format.width = rt->size.width;
+		aux_format.height = rt->size.height;
+		aux_format.depth = 1;
+		aux_format.array_layers = rt->view_count;
+		aux_format.mipmaps = 1;
+		aux_format.texture_type = rt->view_count > 1 ? RD::TEXTURE_TYPE_2D_ARRAY : RD::TEXTURE_TYPE_2D;
+		aux_format.samples = RD::TEXTURE_SAMPLES_1;
+		aux_format.usage_bits = RD::TEXTURE_USAGE_SAMPLING_BIT |
+				RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT |
+				RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT;
+		aux_format.shareable_formats.push_back(format);
+		RID aux = RD::get_singleton()->texture_create(aux_format, RD::TextureView());
+		if (aux.is_null()) {
+			for (RID allocated : aux_textures) {
+				RD::get_singleton()->free_rid(allocated);
+			}
+			ERR_FAIL_MSG("Failed to allocate a canvas item MRT attachment.");
+		}
+		aux_textures.push_back(aux);
+	}
+	rt->mrt_aux_color = aux_textures;
 
 	if (rt->msaa != RSE::VIEWPORT_MSAA_DISABLED) {
 		// Use the texture format of the color attachment for the multisample color attachment.
@@ -4452,6 +4493,7 @@ Point2i TextureStorage::render_target_get_position(RID p_render_target) const {
 void TextureStorage::render_target_set_size(RID p_render_target, int p_width, int p_height, uint32_t p_view_count) {
 	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
 	ERR_FAIL_NULL(rt);
+	ERR_FAIL_COND_MSG(!rt->mrt_formats.is_empty() && p_view_count != 1, "Canvas item MRT supports only single-view render targets.");
 	if (rt->size.x != p_width || rt->size.y != p_height || rt->view_count != p_view_count) {
 		rt->size.x = p_width;
 		rt->size.y = p_height;
@@ -4628,6 +4670,8 @@ void TextureStorage::render_target_set_as_unused(RID p_render_target) {
 void TextureStorage::render_target_set_msaa(RID p_render_target, RSE::ViewportMSAA p_msaa) {
 	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
 	ERR_FAIL_NULL(rt);
+	ERR_FAIL_COND_MSG(!rt->mrt_formats.is_empty() && p_msaa != RSE::VIEWPORT_MSAA_DISABLED,
+			"MSAA cannot be enabled on a canvas item MRT render target.");
 	if (p_msaa == rt->msaa) {
 		return;
 	}
@@ -4706,6 +4750,75 @@ RID TextureStorage::render_target_get_rd_framebuffer(RID p_render_target) {
 	ERR_FAIL_NULL_V(rt, RID());
 
 	return rt->get_framebuffer();
+}
+
+void TextureStorage::render_target_set_mrt_attachments(RID p_render_target, const Vector<int> &p_formats, const Vector<Color> &p_clear_colors) {
+	Vector<RD::DataFormat> formats;
+	formats.resize(p_formats.size());
+	for (int i = 0; i < p_formats.size(); i++) {
+		ERR_FAIL_COND_MSG(p_formats[i] < 0 || p_formats[i] >= RD::DATA_FORMAT_MAX, "Invalid canvas item MRT texture format.");
+		formats.write[i] = RD::DataFormat(p_formats[i]);
+	}
+	render_target_set_mrt_attachments_typed(p_render_target, formats, p_clear_colors);
+}
+
+void TextureStorage::render_target_set_mrt_attachments_typed(RID p_render_target, const Vector<RD::DataFormat> &p_formats, const Vector<Color> &p_clear_colors) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL(rt);
+	ERR_FAIL_COND_MSG(p_formats.size() > 7, "Canvas item MRT supports at most seven auxiliary attachments.");
+	ERR_FAIL_COND_MSG(uint64_t(p_formats.size() + 1) > RD::get_singleton()->limit_get(RD::LIMIT_MAX_FRAMEBUFFER_COLOR_ATTACHMENTS),
+			"Canvas item MRT attachment count exceeds the rendering device limit.");
+	ERR_FAIL_COND_MSG(!p_formats.is_empty() && rt->view_count != 1, "Canvas item MRT supports only single-view render targets.");
+	const BitField<RD::TextureUsageBits> usage = RD::TEXTURE_USAGE_SAMPLING_BIT |
+			RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT |
+			RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT;
+	for (RD::DataFormat format : p_formats) {
+		ERR_FAIL_COND_MSG(format < 0 || format >= RD::DATA_FORMAT_MAX, "Invalid canvas item MRT texture format.");
+		ERR_FAIL_COND_MSG(!RD::get_singleton()->texture_is_format_supported_for_usage(format, usage),
+				"Canvas item MRT texture format does not support the required usage flags.");
+	}
+
+	Vector<Color> clear_colors = p_clear_colors;
+	if (clear_colors.size() > p_formats.size()) {
+		clear_colors.resize(p_formats.size());
+	}
+	while (clear_colors.size() < p_formats.size()) {
+		clear_colors.push_back(Color(0, 0, 0, 0));
+	}
+	if (rt->mrt_formats == p_formats && rt->mrt_clear_colors == clear_colors) {
+		return;
+	}
+	if (rt->mrt_formats == p_formats) {
+		rt->mrt_clear_colors = clear_colors;
+		return;
+	}
+
+	rt->mrt_formats = p_formats;
+	rt->mrt_clear_colors = clear_colors;
+	if (!p_formats.is_empty() && rt->msaa != RSE::VIEWPORT_MSAA_DISABLED) {
+		rt->msaa = RSE::VIEWPORT_MSAA_DISABLED;
+	}
+	_update_render_target(rt);
+}
+
+RID TextureStorage::render_target_get_aux_color(RID p_render_target, int p_index) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, RID());
+	ERR_FAIL_INDEX_V(p_index, rt->mrt_aux_color.size(), RID());
+	return rt->mrt_aux_color[p_index];
+}
+
+int TextureStorage::render_target_get_aux_count(RID p_render_target) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, 0);
+	return rt->mrt_aux_color.size();
+}
+
+const Vector<Color> &TextureStorage::render_target_get_mrt_clear_colors(RID p_render_target) {
+	static const Vector<Color> empty;
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, empty);
+	return rt->mrt_clear_colors;
 }
 
 RID TextureStorage::render_target_get_rd_texture(RID p_render_target) {
