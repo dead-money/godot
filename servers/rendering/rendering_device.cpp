@@ -4867,9 +4867,8 @@ RID RenderingDevice::render_pipeline_create(RID p_shader, FramebufferFormatID p_
 		// mask — i.e. the shader cannot write to attachments the FB doesn't
 		// have, but is allowed to write to FEWER attachments than the FB has.
 		// FB attachments the shader doesn't write are preserved at their
-		// existing values (caller is expected to set color_write_mask = 0
-		// on the corresponding PipelineColorBlendState::Attachment so Vulkan
-		// validation matches the per-attachment write semantics).
+		// existing values (the corresponding color write masks are validated
+		// below so the pipeline state matches the per-attachment semantics).
 		// Enables canvas_item MRT where viewports configure aux attachments
 		// that only some shaders contribute to.
 		ERR_FAIL_COND_V_MSG((shader->fragment_output_mask & ~output_mask) != 0, RID(),
@@ -4937,13 +4936,18 @@ RID RenderingDevice::render_pipeline_create(RID p_shader, FramebufferFormatID p_
 	ERR_FAIL_COND_V(p_blend_state.attachments.size() < pass.color_attachments.size(), RID());
 	for (int i = 0; i < pass.color_attachments.size(); i++) {
 		if (pass.color_attachments[i] != ATTACHMENT_UNUSED) {
-			ERR_FAIL_INDEX_V(p_blend_state.attachments[i].src_color_blend_factor, BLEND_FACTOR_MAX, RID());
-			ERR_FAIL_INDEX_V(p_blend_state.attachments[i].dst_color_blend_factor, BLEND_FACTOR_MAX, RID());
-			ERR_FAIL_INDEX_V(p_blend_state.attachments[i].color_blend_op, BLEND_OP_MAX, RID());
+			const PipelineColorBlendState::Attachment &attachment = p_blend_state.attachments[i];
+			if (!(shader->fragment_output_mask & (uint32_t(1) << i))) {
+				ERR_FAIL_COND_V_MSG(attachment.write_r || attachment.write_g || attachment.write_b || attachment.write_a, RID(),
+						"Framebuffer color attachment " + itos(i) + " has no fragment shader output, but its color write mask is enabled.");
+			}
+			ERR_FAIL_INDEX_V(attachment.src_color_blend_factor, BLEND_FACTOR_MAX, RID());
+			ERR_FAIL_INDEX_V(attachment.dst_color_blend_factor, BLEND_FACTOR_MAX, RID());
+			ERR_FAIL_INDEX_V(attachment.color_blend_op, BLEND_OP_MAX, RID());
 
-			ERR_FAIL_INDEX_V(p_blend_state.attachments[i].src_alpha_blend_factor, BLEND_FACTOR_MAX, RID());
-			ERR_FAIL_INDEX_V(p_blend_state.attachments[i].dst_alpha_blend_factor, BLEND_FACTOR_MAX, RID());
-			ERR_FAIL_INDEX_V(p_blend_state.attachments[i].alpha_blend_op, BLEND_OP_MAX, RID());
+			ERR_FAIL_INDEX_V(attachment.src_alpha_blend_factor, BLEND_FACTOR_MAX, RID());
+			ERR_FAIL_INDEX_V(attachment.dst_alpha_blend_factor, BLEND_FACTOR_MAX, RID());
+			ERR_FAIL_INDEX_V(attachment.alpha_blend_op, BLEND_OP_MAX, RID());
 		}
 	}
 
