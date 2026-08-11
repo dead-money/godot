@@ -75,6 +75,7 @@ ParticlesStorage::ParticlesStorage() {
 		actions.renames["RESTART"] = "restart";
 		actions.renames["CUSTOM"] = "PARTICLE.custom";
 		actions.renames["AMOUNT_RATIO"] = "FRAME.amount_ratio";
+		actions.renames["FLIP_H"] = "bool(frame_history.data[0].flip_h)";
 		for (int i = 0; i < ParticlesShader::MAX_USERDATAS; i++) {
 			String udname = "USERDATA" + itos(i + 1);
 			actions.renames[udname] = "PARTICLE.userdata" + itos(i + 1);
@@ -412,6 +413,13 @@ void ParticlesStorage::particles_set_use_local_coordinates(RID p_particles, bool
 
 	particles->use_local_coords = p_enable;
 	particles->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_PARTICLES);
+}
+
+void ParticlesStorage::particles_set_flip_h(RID p_particles, bool p_enable) {
+	Particles *particles = particles_owner.get_or_null(p_particles);
+	ERR_FAIL_NULL(particles);
+
+	particles->flip_h = p_enable;
 }
 
 void ParticlesStorage::particles_set_fixed_fps(RID p_particles, int p_fps) {
@@ -876,7 +884,7 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 	frame_params.cycle = p_particles->cycle_number;
 	frame_params.frame = p_particles->frame_counter++;
 	frame_params.amount_ratio = p_particles->amount_ratio;
-	frame_params.pad1 = 0;
+	frame_params.flip_h = p_particles->flip_h ? 1u : 0u;
 	frame_params.pad2 = 0;
 	frame_params.emitter_velocity[0] = p_particles->emitter_velocity.x;
 	frame_params.emitter_velocity[1] = p_particles->emitter_velocity.y;

@@ -118,15 +118,22 @@ void GPUParticles2D::set_randomness_ratio(real_t p_ratio) {
 
 void GPUParticles2D::set_visibility_rect(const Rect2 &p_visibility_rect) {
 	visibility_rect = p_visibility_rect;
+	_update_visibility_rect();
+	queue_redraw();
+}
+
+void GPUParticles2D::_update_visibility_rect() {
+	Rect2 rect = visibility_rect;
+	if (flip_h) {
+		rect.position.x = -(rect.position.x + rect.size.x);
+	}
 	AABB aabb;
-	aabb.position.x = p_visibility_rect.position.x;
-	aabb.position.y = p_visibility_rect.position.y;
-	aabb.size.x = p_visibility_rect.size.x;
-	aabb.size.y = p_visibility_rect.size.y;
+	aabb.position.x = rect.position.x;
+	aabb.position.y = rect.position.y;
+	aabb.size.x = rect.size.x;
+	aabb.size.y = rect.size.y;
 
 	RS::get_singleton()->particles_set_custom_aabb(particles, aabb);
-
-	queue_redraw();
 }
 
 void GPUParticles2D::set_use_local_coordinates(bool p_enable) {
@@ -136,6 +143,17 @@ void GPUParticles2D::set_use_local_coordinates(bool p_enable) {
 	if (!p_enable && is_inside_tree()) {
 		_update_particle_emission_transform();
 	}
+}
+
+void GPUParticles2D::set_flip_h(bool p_enable) {
+	flip_h = p_enable;
+	RS::get_singleton()->particles_set_flip_h(particles, flip_h);
+	_update_visibility_rect();
+	queue_redraw();
+}
+
+bool GPUParticles2D::get_flip_h() const {
+	return flip_h;
 }
 
 void GPUParticles2D::_update_particle_emission_transform() {
@@ -883,6 +901,7 @@ void GPUParticles2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_randomness_ratio", "ratio"), &GPUParticles2D::set_randomness_ratio);
 	ClassDB::bind_method(D_METHOD("set_visibility_rect", "visibility_rect"), &GPUParticles2D::set_visibility_rect);
 	ClassDB::bind_method(D_METHOD("set_use_local_coordinates", "enable"), &GPUParticles2D::set_use_local_coordinates);
+	ClassDB::bind_method(D_METHOD("set_flip_h", "enable"), &GPUParticles2D::set_flip_h);
 	ClassDB::bind_method(D_METHOD("set_fixed_fps", "fps"), &GPUParticles2D::set_fixed_fps);
 	ClassDB::bind_method(D_METHOD("set_fractional_delta", "enable"), &GPUParticles2D::set_fractional_delta);
 	ClassDB::bind_method(D_METHOD("set_interpolate", "enable"), &GPUParticles2D::set_interpolate);
@@ -902,6 +921,7 @@ void GPUParticles2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_randomness_ratio"), &GPUParticles2D::get_randomness_ratio);
 	ClassDB::bind_method(D_METHOD("get_visibility_rect"), &GPUParticles2D::get_visibility_rect);
 	ClassDB::bind_method(D_METHOD("get_use_local_coordinates"), &GPUParticles2D::get_use_local_coordinates);
+	ClassDB::bind_method(D_METHOD("get_flip_h"), &GPUParticles2D::get_flip_h);
 	ClassDB::bind_method(D_METHOD("get_fixed_fps"), &GPUParticles2D::get_fixed_fps);
 	ClassDB::bind_method(D_METHOD("get_fractional_delta"), &GPUParticles2D::get_fractional_delta);
 	ClassDB::bind_method(D_METHOD("get_interpolate"), &GPUParticles2D::get_interpolate);
@@ -974,6 +994,7 @@ void GPUParticles2D::_bind_methods() {
 	ADD_GROUP("Drawing", "");
 	ADD_PROPERTY(PropertyInfo(Variant::RECT2, "visibility_rect", PROPERTY_HINT_NONE, "suffix:px"), "set_visibility_rect", "get_visibility_rect");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "local_coords"), "set_use_local_coordinates", "get_use_local_coordinates");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "flip_h"), "set_flip_h", "get_flip_h");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "draw_order", PROPERTY_HINT_ENUM, "Index,Lifetime,Reverse Lifetime"), "set_draw_order", "get_draw_order");
 	ADD_GROUP("Trails", "trail_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "trail_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_trail_enabled", "is_trail_enabled");

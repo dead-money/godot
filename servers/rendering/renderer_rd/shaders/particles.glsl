@@ -68,7 +68,7 @@ struct FrameParams {
 
 	uint frame;
 	float amount_ratio;
-	uint pad1;
+	uint flip_h;
 	uint pad2;
 
 	uint random_seed;
