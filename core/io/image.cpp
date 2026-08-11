@@ -2059,7 +2059,7 @@ static const float *_kaiser_weights() {
 }
 
 template <int CC>
-static void _generate_po2_mipmap_kaiser_u8(const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height) {
+static void _generate_po2_mipmap_kaiser_u8(const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_premultiplied_alpha) {
 	const uint32_t dst_w = MAX(p_width >> 1, 1u);
 	const uint32_t dst_h = MAX(p_height >> 1, 1u);
 	const float *w = _kaiser_weights();
@@ -2090,6 +2090,7 @@ static void _generate_po2_mipmap_kaiser_u8(const uint8_t *p_src, uint8_t *p_dst,
 		const int sy_start = int(dy) * 2 - 2;
 		uint8_t *dst_row = p_dst + int64_t(dy) * dst_w * CC;
 		for (uint32_t x = 0; x < dst_w; x++) {
+			uint8_t output[CC];
 			for (int c = 0; c < CC; c++) {
 				float acc = 0.0f;
 				for (int t = 0; t < KAISER_TAP_COUNT; t++) {
@@ -2097,27 +2098,37 @@ static void _generate_po2_mipmap_kaiser_u8(const uint8_t *p_src, uint8_t *p_dst,
 					acc += temp[int64_t(sy) * dst_w * CC + x * CC + c] * w[t];
 				}
 				const int32_t v = int32_t(Math::round(acc));
-				dst_row[x * CC + c] = uint8_t(CLAMP(v, 0, 255));
+				output[c] = uint8_t(CLAMP(v, 0, 255));
+			}
+			if constexpr (CC == 4) {
+				if (p_premultiplied_alpha) {
+					output[0] = MIN(output[0], output[3]);
+					output[1] = MIN(output[1], output[3]);
+					output[2] = MIN(output[2], output[3]);
+				}
+			}
+			for (int c = 0; c < CC; c++) {
+				dst_row[x * CC + c] = output[c];
 			}
 		}
 	}
 }
 
-void Image::_generate_mipmap_kaiser_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height) {
+void Image::_generate_mipmap_kaiser_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_premultiplied_alpha) {
 	switch (p_format) {
 		case Image::FORMAT_L8:
 		case Image::FORMAT_R8:
-			_generate_po2_mipmap_kaiser_u8<1>(p_src, p_dst, p_width, p_height);
+			_generate_po2_mipmap_kaiser_u8<1>(p_src, p_dst, p_width, p_height, false);
 			break;
 		case Image::FORMAT_LA8:
 		case Image::FORMAT_RG8:
-			_generate_po2_mipmap_kaiser_u8<2>(p_src, p_dst, p_width, p_height);
+			_generate_po2_mipmap_kaiser_u8<2>(p_src, p_dst, p_width, p_height, false);
 			break;
 		case Image::FORMAT_RGB8:
-			_generate_po2_mipmap_kaiser_u8<3>(p_src, p_dst, p_width, p_height);
+			_generate_po2_mipmap_kaiser_u8<3>(p_src, p_dst, p_width, p_height, false);
 			break;
 		case Image::FORMAT_RGBA8:
-			_generate_po2_mipmap_kaiser_u8<4>(p_src, p_dst, p_width, p_height);
+			_generate_po2_mipmap_kaiser_u8<4>(p_src, p_dst, p_width, p_height, p_premultiplied_alpha);
 			break;
 		default:
 			// Float/16-bit/packed formats route through the box path. The
@@ -2293,7 +2304,7 @@ void Image::normalize() {
 	}
 }
 
-Error Image::generate_mipmaps(bool p_renormalize) {
+Error Image::_generate_mipmaps(bool p_renormalize, bool p_use_kaiser, bool p_premultiplied_alpha) {
 	ERR_FAIL_COND_V_MSG(is_compressed(), ERR_UNAVAILABLE, "Cannot generate mipmaps from compressed image formats.");
 	ERR_FAIL_COND_V_MSG(width == 0 || height == 0, ERR_UNCONFIGURED, "Cannot generate mipmaps with width or height equal to 0.");
 
@@ -2312,7 +2323,11 @@ Error Image::generate_mipmaps(bool p_renormalize) {
 		int w, h;
 		_get_mipmap_offset_and_size(i, ofs, w, h);
 
-		_generate_mipmap_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h, p_renormalize);
+		if (p_use_kaiser) {
+			_generate_mipmap_kaiser_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h, p_premultiplied_alpha);
+		} else {
+			_generate_mipmap_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h, p_renormalize);
+		}
 
 		prev_ofs = ofs;
 		prev_w = w;
@@ -2324,34 +2339,12 @@ Error Image::generate_mipmaps(bool p_renormalize) {
 	return OK;
 }
 
-Error Image::generate_mipmaps_kaiser() {
-	ERR_FAIL_COND_V_MSG(is_compressed(), ERR_UNAVAILABLE, "Cannot generate mipmaps from compressed image formats.");
-	ERR_FAIL_COND_V_MSG(width == 0 || height == 0, ERR_UNCONFIGURED, "Cannot generate mipmaps with width or height equal to 0.");
+Error Image::generate_mipmaps(bool p_renormalize) {
+	return _generate_mipmaps(p_renormalize, false, false);
+}
 
-	int gen_mipmap_count;
-	int64_t size = _get_dst_image_size(width, height, format, gen_mipmap_count);
-	data.resize(size);
-	uint8_t *wp = data.ptrw();
-
-	int prev_ofs = 0;
-	int prev_h = height;
-	int prev_w = width;
-
-	for (int i = 1; i <= gen_mipmap_count; i++) {
-		int64_t ofs;
-		int w, h;
-		_get_mipmap_offset_and_size(i, ofs, w, h);
-
-		_generate_mipmap_kaiser_from_format(format, wp + prev_ofs, wp + ofs, prev_w, prev_h);
-
-		prev_ofs = ofs;
-		prev_w = w;
-		prev_h = h;
-	}
-
-	mipmaps = true;
-
-	return OK;
+Error Image::generate_mipmaps_kaiser(bool p_premultiplied_alpha) {
+	return _generate_mipmaps(false, true, p_premultiplied_alpha);
 }
 
 Error Image::generate_mipmap_roughness(RoughnessChannel p_roughness_channel, const Ref<Image> &p_normal_map) {
@@ -4032,7 +4025,7 @@ void Image::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("flip_x"), &Image::flip_x);
 	ClassDB::bind_method(D_METHOD("flip_y"), &Image::flip_y);
 	ClassDB::bind_method(D_METHOD("generate_mipmaps", "renormalize"), &Image::generate_mipmaps, DEFVAL(false));
-	ClassDB::bind_method(D_METHOD("generate_mipmaps_kaiser"), &Image::generate_mipmaps_kaiser);
+	ClassDB::bind_method(D_METHOD("generate_mipmaps_kaiser", "premultiplied_alpha"), &Image::generate_mipmaps_kaiser, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("clear_mipmaps"), &Image::clear_mipmaps);
 
 #ifndef DISABLE_DEPRECATED

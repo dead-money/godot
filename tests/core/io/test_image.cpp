@@ -461,6 +461,28 @@ TEST_CASE("[Image] Custom mipmaps") {
 	}
 }
 
+TEST_CASE("[Image] Kaiser mipmaps preserve premultiplied alpha") {
+	Ref<Image> image = memnew(Image(8, 8, false, Image::FORMAT_RGBA8));
+	image->fill(Color(128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f, 128.0f / 255.0f));
+	for (int y = 0; y < image->get_height(); y++) {
+		image->set_pixel(2, y, Color(0, 0, 0, 1));
+		image->set_pixel(7, y, Color(0, 0, 0, 1));
+	}
+
+	REQUIRE(image->generate_mipmaps_kaiser(true) == OK);
+	for (int mip = 1; mip <= image->get_mipmap_count(); mip++) {
+		Ref<Image> mip_image = image->get_image_from_mipmap(mip);
+		for (int y = 0; y < mip_image->get_height(); y++) {
+			for (int x = 0; x < mip_image->get_width(); x++) {
+				const Color pixel = mip_image->get_pixel(x, y);
+				CHECK(pixel.r <= pixel.a);
+				CHECK(pixel.g <= pixel.a);
+				CHECK(pixel.b <= pixel.a);
+			}
+		}
+	}
+}
+
 TEST_CASE("[Image] Convert image") {
 	for (int format = Image::FORMAT_RF; format < Image::FORMAT_RGBE9995; format++) {
 		for (int new_format = Image::FORMAT_RF; new_format < Image::FORMAT_RGBE9995; new_format++) {

@@ -298,8 +298,8 @@ private:
 	Error _load_from_buffer(const Vector<uint8_t> &p_array, ImageMemLoadFunc p_loader);
 
 	_FORCE_INLINE_ void _generate_mipmap_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_renormalize = false);
-
-	void _generate_mipmap_kaiser_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height);
+	void _generate_mipmap_kaiser_from_format(Image::Format p_format, const uint8_t *p_src, uint8_t *p_dst, uint32_t p_width, uint32_t p_height, bool p_premultiplied_alpha);
+	Error _generate_mipmaps(bool p_renormalize, bool p_use_kaiser, bool p_premultiplied_alpha);
 
 	static void average_4_uint8(uint8_t &p_out, const uint8_t &p_a, const uint8_t &p_b, const uint8_t &p_c, const uint8_t &p_d);
 	static void average_4_float(float &p_out, const float &p_a, const float &p_b, const float &p_c, const float &p_d);
@@ -356,8 +356,9 @@ public:
 	// DEAD MONEY: Kaiser-windowed sinc downsampler. Sharper LODs than the
 	// 2x2-box default; intended for art textures where the default chain
 	// reads too soft at zoom-out (e.g. ortho 2D scenes). uint8 formats
-	// only — others fall back to the box path.
-	Error generate_mipmaps_kaiser();
+	// only — others fall back to the box path. Pass true for premultiplied
+	// RGBA8 data to preserve RGB <= alpha despite the filter's negative taps.
+	Error generate_mipmaps_kaiser(bool p_premultiplied_alpha = false);
 
 	Error generate_mipmap_roughness(RoughnessChannel p_roughness_channel, const Ref<Image> &p_normal_map);
 
