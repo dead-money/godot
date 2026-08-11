@@ -1301,7 +1301,8 @@ void DisplayServerWayland::window_set_mode(DisplayServerEnums::WindowMode p_mode
 		return;
 	}
 
-	wayland_thread.window_try_set_mode(p_window_id, p_mode);
+	const bool borderless = (wd.flags & DisplayServerEnums::WINDOW_FLAG_BORDERLESS_BIT) != 0;
+	wayland_thread.window_try_set_mode(p_window_id, p_mode, borderless);
 }
 
 void DisplayServerWayland::window_set_icon(const Ref<Image> &p_icon, DisplayServerEnums::WindowID p_window_id) {

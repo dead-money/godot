@@ -4845,7 +4845,7 @@ bool WaylandThread::window_can_set_mode(DisplayServerEnums::WindowID p_window_id
 	return false;
 }
 
-void WaylandThread::window_try_set_mode(DisplayServerEnums::WindowID p_window_id, DisplayServerEnums::WindowMode p_window_mode) {
+void WaylandThread::window_try_set_mode(DisplayServerEnums::WindowID p_window_id, DisplayServerEnums::WindowMode p_window_mode, bool p_borderless) {
 	ERR_FAIL_COND(!windows.has(p_window_id));
 	WindowState &ws = windows[p_window_id];
 
@@ -4914,17 +4914,20 @@ void WaylandThread::window_try_set_mode(DisplayServerEnums::WindowID p_window_id
 		return;
 	}
 
+#ifdef LIBDECOR_ENABLED
+	const bool fullscreen_target = p_window_mode == DisplayServerEnums::WINDOW_MODE_FULLSCREEN || p_window_mode == DisplayServerEnums::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
+	if (ws.libdecor_frame && !fullscreen_target) {
+		const bool visible_target = !p_borderless;
+		if (libdecor_frame_is_visible(ws.libdecor_frame) != visible_target) {
+			libdecor_frame_set_visibility(ws.libdecor_frame, visible_target);
+		}
+	}
+#endif // LIBDECOR_ENABLED
+
 	// Ask the compositor to set the state indicated by the new mode.
 	switch (p_window_mode) {
 		case DisplayServerEnums::WINDOW_MODE_WINDOWED: {
-			// Already windowed after the unset above — restore the decoration
-			// subsurface that fullscreen entry explicitly hid. The borderless
-			// flag, if set, gets re-applied separately and will hide it again.
-#ifdef LIBDECOR_ENABLED
-			if (ws.libdecor_frame && !libdecor_frame_is_visible(ws.libdecor_frame)) {
-				libdecor_frame_set_visibility(ws.libdecor_frame, true);
-			}
-#endif // LIBDECOR_ENABLED
+			// Do nothing.
 		} break;
 
 		case DisplayServerEnums::WINDOW_MODE_MINIMIZED: {

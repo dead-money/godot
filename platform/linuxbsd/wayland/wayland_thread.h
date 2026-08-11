@@ -1292,7 +1292,7 @@ public:
 	void window_set_min_size(DisplayServerEnums::WindowID p_window_id, const Size2i &p_size);
 
 	bool window_can_set_mode(DisplayServerEnums::WindowID p_window_id, DisplayServerEnums::WindowMode p_window_mode) const;
-	void window_try_set_mode(DisplayServerEnums::WindowID p_window_id, DisplayServerEnums::WindowMode p_window_mode);
+	void window_try_set_mode(DisplayServerEnums::WindowID p_window_id, DisplayServerEnums::WindowMode p_window_mode, bool p_borderless);
 	DisplayServerEnums::WindowMode window_get_mode(DisplayServerEnums::WindowID p_window_id) const;
 
 	void window_set_borderless(DisplayServerEnums::WindowID p_window_id, bool p_borderless);
