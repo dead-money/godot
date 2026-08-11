@@ -38,6 +38,15 @@
 #include "core/string/ustring.h"
 
 #include <cstdio>
+#include <cstdlib>
+
+static bool _halt_on_error_enabled() {
+	static const bool enabled = []() {
+		const char *value = std::getenv("GODOT_HALT_ON_ERROR");
+		return value && value[0] == '1' && value[1] == '\0';
+	}();
+	return enabled;
+}
 
 // Optional physics interpolation warnings try to include the path to the relevant node.
 #if defined(DEBUG_ENABLED) && defined(TOOLS_ENABLED)
@@ -141,6 +150,12 @@ void _err_print_error(const char *p_function, const char *p_file, int p_line, co
 	_global_unlock();
 
 	is_printing_error = false;
+
+	if (p_type == ERR_HANDLER_ERROR && _halt_on_error_enabled()) {
+		std::fflush(stdout);
+		std::fflush(stderr);
+		std::_Exit(1);
+	}
 }
 
 // For printing errors when we may crash at any point, so we must flush ASAP a lot of lines
@@ -180,6 +195,12 @@ void _err_print_error_asap(const String &p_error, ErrorHandlerType p_type) {
 	_global_unlock();
 
 	is_printing_error = false;
+
+	if (p_type == ERR_HANDLER_ERROR && _halt_on_error_enabled()) {
+		std::fflush(stdout);
+		std::fflush(stderr);
+		std::_Exit(1);
+	}
 }
 
 // Errors with message. (All combinations of p_error and p_message as String or char*.)
