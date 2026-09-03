@@ -272,8 +272,10 @@ void CrashHandler::disable() {
 		return;
 	}
 
+	remove_native_fault_forwarder();
 	disabled = true;
 }
 
 void CrashHandler::initialize() {
+	install_native_fault_forwarder();
 }

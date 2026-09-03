@@ -314,6 +314,7 @@ void CrashHandler::disable() {
 	signal(SIGFPE, nullptr);
 	signal(SIGILL, nullptr);
 #endif
+	remove_native_fault_forwarder();
 
 	disabled = true;
 }
@@ -324,4 +325,5 @@ void CrashHandler::initialize() {
 	signal(SIGFPE, CrashHandlerException);
 	signal(SIGILL, CrashHandlerException);
 #endif
+	install_native_fault_forwarder();
 }

@@ -44,6 +44,10 @@ extern DWORD CrashHandlerException(EXCEPTION_POINTERS *ep);
 
 class CrashHandler {
 	bool disabled;
+	void *native_fault_forwarder = nullptr;
+
+	void install_native_fault_forwarder();
+	void remove_native_fault_forwarder();
 
 public:
 	void initialize();
