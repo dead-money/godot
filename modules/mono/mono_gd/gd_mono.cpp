@@ -641,6 +641,18 @@ void GDMono::initialize() {
 
 	_init_godot_api_hashes();
 
+	// DEAD MONEY: CoreCLR terminates the process itself on native faults that
+	// unwind through managed frames, bypassing any crash handler installed by
+	// the engine or an extension. Ask the runtime to write a minidump for
+	// those so the game can report it on the next launch.
+	OS *os = OS::get_singleton();
+	if (!os->has_environment("DOTNET_DbgEnableMiniDump")) {
+		os->set_environment("DOTNET_DbgEnableMiniDump", "1");
+		os->set_environment("DOTNET_DbgMiniDumpType", "1");
+		os->set_environment("DOTNET_DbgMiniDumpName", os->get_user_data_dir().path_join("crashdumps").path_join("coreclr-%p-%t.dmp"));
+		os->set_environment("DOTNET_CreateDumpDiagnostics", "0");
+	}
+
 	godot_plugins_initialize_fn godot_plugins_initialize = nullptr;
 
 #if !defined(APPLE_EMBEDDED_ENABLED)
