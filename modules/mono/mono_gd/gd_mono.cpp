@@ -652,7 +652,9 @@ void GDMono::initialize() {
 	if (!os->has_environment("DOTNET_DbgEnableMiniDump")) {
 		os->set_environment("DOTNET_DbgEnableMiniDump", "1");
 		os->set_environment("DOTNET_DbgMiniDumpType", "1");
-		os->set_environment("DOTNET_DbgMiniDumpName", os->get_user_data_dir().path_join("crashdumps").path_join("coreclr-%p-%t.dmp"));
+		// The runtime splices this unquoted into createdump's command line,
+		// and the user data path contains spaces.
+		os->set_environment("DOTNET_DbgMiniDumpName", "\"" + os->get_user_data_dir().path_join("crashdumps").path_join("coreclr-%p-%t.dmp") + "\"");
 		os->set_environment("DOTNET_CreateDumpDiagnostics", "0");
 	}
 #endif
