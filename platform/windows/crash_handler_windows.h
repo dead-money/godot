@@ -52,6 +52,11 @@ class CrashHandler {
 public:
 	void initialize();
 
+	// Call right before a managed runtime replaces the process's unhandled
+	// exception filter, so native faults still reach the crash reporter that
+	// owned it.
+	static void remember_crash_reporter();
+
 	void disable();
 	bool is_disabled() const { return disabled; }
 

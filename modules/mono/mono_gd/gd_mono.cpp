@@ -57,6 +57,10 @@
 #include <dlfcn.h>
 #endif
 
+#ifdef WINDOWS_ENABLED
+#include "platform/windows/crash_handler_windows.h"
+#endif
+
 #ifndef TOOLS_ENABLED
 #ifdef ANDROID_ENABLED
 #include "../thirdparty/mono_delegates.h"
@@ -642,21 +646,7 @@ void GDMono::initialize() {
 	_init_godot_api_hashes();
 
 #ifdef WINDOWS_ENABLED
-	// DEAD MONEY: On Windows, CoreCLR terminates the process itself on native
-	// faults that unwind through managed frames, bypassing any crash handler
-	// installed by the engine or an extension. Ask the runtime to write a
-	// minidump for those so the game can report it on the next launch. On
-	// Linux the runtime chains to the previous signal handler instead, and
-	// createdump would write a multi-hundred-megabyte ELF core nobody uploads.
-	OS *os = OS::get_singleton();
-	if (!os->has_environment("DOTNET_DbgEnableMiniDump")) {
-		os->set_environment("DOTNET_DbgEnableMiniDump", "1");
-		os->set_environment("DOTNET_DbgMiniDumpType", "1");
-		// The runtime splices this unquoted into createdump's command line,
-		// and the user data path contains spaces.
-		os->set_environment("DOTNET_DbgMiniDumpName", "\"" + os->get_user_data_dir().path_join("crashdumps").path_join("coreclr-%p-%t.dmp") + "\"");
-		os->set_environment("DOTNET_CreateDumpDiagnostics", "0");
-	}
+	CrashHandler::remember_crash_reporter();
 #endif
 
 	godot_plugins_initialize_fn godot_plugins_initialize = nullptr;

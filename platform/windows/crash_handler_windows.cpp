@@ -40,6 +40,13 @@
 // own modules are left alone; the runtime turns those into managed exceptions.
 
 static LPTOP_LEVEL_EXCEPTION_FILTER baseline_filter = nullptr;
+static LPTOP_LEVEL_EXCEPTION_FILTER reporter_filter = nullptr;
+
+static LPTOP_LEVEL_EXCEPTION_FILTER current_filter() {
+	LPTOP_LEVEL_EXCEPTION_FILTER filter = SetUnhandledExceptionFilter(nullptr);
+	SetUnhandledExceptionFilter(filter);
+	return filter;
+}
 
 static bool is_hardware_fault(DWORD p_code) {
 	switch (p_code) {
@@ -92,21 +99,26 @@ static LONG WINAPI forward_native_fault(EXCEPTION_POINTERS *p_exception) {
 	if (!is_native_module_address(p_exception->ExceptionRecord->ExceptionAddress)) {
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
-	LPTOP_LEVEL_EXCEPTION_FILTER filter = SetUnhandledExceptionFilter(nullptr);
-	SetUnhandledExceptionFilter(filter);
-	if (filter == nullptr || filter == baseline_filter || !is_native_module_address((const void *)filter)) {
+	LPTOP_LEVEL_EXCEPTION_FILTER filter = current_filter();
+	if (filter != nullptr && !is_native_module_address((const void *)filter)) {
+		filter = reporter_filter; // The managed runtime took over; use what it replaced.
+	}
+	if (filter == nullptr || filter == baseline_filter) {
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 	filter(p_exception); // A crash reporter writes its dump and terminates the process here.
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
+void CrashHandler::remember_crash_reporter() {
+	reporter_filter = current_filter();
+}
+
 void CrashHandler::install_native_fault_forwarder() {
 	if (native_fault_forwarder != nullptr) {
 		return;
 	}
-	baseline_filter = SetUnhandledExceptionFilter(nullptr);
-	SetUnhandledExceptionFilter(baseline_filter);
+	baseline_filter = current_filter();
 	native_fault_forwarder = AddVectoredExceptionHandler(1, forward_native_fault);
 }
 
