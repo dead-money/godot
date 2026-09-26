@@ -846,6 +846,9 @@ public:
 	virtual void canvas_item_add_animation_slice(RID p_item, double p_animation_length, double p_slice_begin, double p_slice_end, double p_offset) = 0;
 
 	virtual void canvas_item_set_sort_children_by_y(RID p_item, bool p_enable) = 0;
+	// DEAD MONEY: key-sorted children.
+	virtual void canvas_item_set_sort_children_by_key(RID p_item, bool p_enable) = 0;
+	virtual void canvas_item_set_sort_key(RID p_item, int64_t p_key) = 0;
 	virtual void canvas_item_set_z_index(RID p_item, int p_z) = 0;
 	virtual void canvas_item_set_z_as_relative_to_parent(RID p_item, bool p_enable) = 0;
 	virtual void canvas_item_set_copy_to_backbuffer(RID p_item, bool p_enable, const Rect2 &p_rect) = 0;

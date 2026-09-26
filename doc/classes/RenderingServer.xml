@@ -626,12 +626,28 @@
 				Multiplies the color of the canvas item specified by the [param item] RID, without affecting its children. See also [method canvas_item_set_modulate]. Equivalent to [member CanvasItem.self_modulate].
 			</description>
 		</method>
+		<method name="canvas_item_set_sort_children_by_key">
+			<return type="void" />
+			<param index="0" name="item" type="RID" />
+			<param index="1" name="enabled" type="bool" />
+			<description>
+				If [param enabled] is [code]true[/code], descendants of the canvas item specified by the [param item] RID are drawn in ascending order of their sort key (see [method canvas_item_set_sort_key]), with tree order breaking ties. Like Y-sorting, descendant sort containers (key or Y) are flattened into the outermost one, which picks the ordering; any other child draws as a unit with its subtree. Z index still takes precedence over the key.
+			</description>
+		</method>
 		<method name="canvas_item_set_sort_children_by_y">
 			<return type="void" />
 			<param index="0" name="item" type="RID" />
 			<param index="1" name="enabled" type="bool" />
 			<description>
 				If [param enabled] is [code]true[/code], child nodes with the lowest Y position are drawn before those with a higher Y position. Y-sorting only affects children that inherit from the canvas item specified by the [param item] RID, not the canvas item itself. Equivalent to [member CanvasItem.y_sort_enabled].
+			</description>
+		</method>
+		<method name="canvas_item_set_sort_key">
+			<return type="void" />
+			<param index="0" name="item" type="RID" />
+			<param index="1" name="key" type="int" />
+			<description>
+				Sets the draw order key of the canvas item specified by the [param item] RID within its enclosing key-sorted container. See [method canvas_item_set_sort_children_by_key]. Has no effect outside a key-sorted container.
 			</description>
 		</method>
 		<method name="canvas_item_set_transform">

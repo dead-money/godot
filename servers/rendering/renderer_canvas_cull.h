@@ -49,6 +49,9 @@ public:
 		int z_index;
 		bool z_relative;
 		bool sort_y;
+		// DEAD MONEY: key-sorted children. Flattens like sort_y; the root container orders by sort_key.
+		bool sort_by_key;
+		int64_t sort_key;
 		Color modulate;
 		Color self_modulate;
 		bool use_parent_material;
@@ -91,6 +94,8 @@ public:
 			modulate = Color(1, 1, 1, 1);
 			self_modulate = Color(1, 1, 1, 1);
 			sort_y = false;
+			sort_by_key = false;
+			sort_key = 0;
 			use_parent_material = false;
 			z_relative = true;
 			index = 0;
@@ -125,6 +130,20 @@ public:
 			return left_y < right_y;
 		}
 	};
+
+	// DEAD MONEY: key-sorted children.
+	struct ItemKeySort {
+		_FORCE_INLINE_ bool operator()(const Item *p_left, const Item *p_right) const {
+			if (p_left->sort_key == p_right->sort_key) {
+				return p_left->ysort_index < p_right->ysort_index;
+			}
+			return p_left->sort_key < p_right->sort_key;
+		}
+	};
+
+	static _FORCE_INLINE_ bool _is_sort_container(const Item *p_item) {
+		return p_item->sort_y || p_item->sort_by_key;
+	}
 
 	struct LightOccluderPolygon {
 		bool active;
@@ -281,6 +300,9 @@ public:
 	void canvas_item_add_animation_slice(RID p_item, double p_animation_length, double p_slice_begin, double p_slice_end, double p_offset);
 
 	void canvas_item_set_sort_children_by_y(RID p_item, bool p_enable);
+	// DEAD MONEY: key-sorted children.
+	void canvas_item_set_sort_children_by_key(RID p_item, bool p_enable);
+	void canvas_item_set_sort_key(RID p_item, int64_t p_key);
 	void canvas_item_set_z_index(RID p_item, int p_z);
 	void canvas_item_set_z_as_relative_to_parent(RID p_item, bool p_enable);
 	void canvas_item_set_copy_to_backbuffer(RID p_item, bool p_enable, const Rect2 &p_rect);

@@ -34,6 +34,7 @@
 #include "core/config/project_settings.h"
 #include "core/math/geometry_2d.h"
 #include "core/math/transform_interpolator.h"
+#include "core/templates/local_vector.h"
 #include "servers/rendering/renderer_viewport.h"
 #include "servers/rendering/rendering_server_default.h"
 #include "servers/rendering/rendering_server_globals.h"
@@ -151,12 +152,12 @@ void RendererCanvasCull::_collect_ysort_children(RendererCanvasCull::Item *p_can
 
 				r_index++;
 
-				if (child_items[i]->sort_y) {
+				if (_is_sort_container(child_items[i])) {
 					_collect_ysort_children(child_items[i], child_items[i]->use_parent_material ? p_material_owner : child_items[i], p_modulate * child_items[i]->modulate, r_items, r_index, r_ysort_children_count, abs_z, p_canvas_cull_mask);
 				}
 			} else {
 				r_ysort_children_count--;
-				if (child_items[i]->sort_y) {
+				if (_is_sort_container(child_items[i])) {
 					r_ysort_children_count -= child_items[i]->ysort_children_count;
 				}
 			}
@@ -171,7 +172,7 @@ int RendererCanvasCull::_count_ysort_children(RendererCanvasCull::Item *p_canvas
 	for (int i = 0; i < child_item_count; i++) {
 		if (child_items[i]->visible) {
 			ysort_children_count++;
-			if (child_items[i]->sort_y) {
+			if (_is_sort_container(child_items[i])) {
 				if (child_items[i]->ysort_children_count == -1) {
 					child_items[i]->ysort_children_count = _count_ysort_children(child_items[i]);
 				}
@@ -186,7 +187,7 @@ void RendererCanvasCull::_mark_ysort_dirty(RendererCanvasCull::Item *ysort_owner
 	do {
 		ysort_owner->ysort_children_count = -1;
 		ysort_owner = canvas_item_owner.owns(ysort_owner->parent) ? canvas_item_owner.get_or_null(ysort_owner->parent) : nullptr;
-	} while (ysort_owner && ysort_owner->sort_y);
+	} while (ysort_owner && _is_sort_container(ysort_owner));
 }
 
 void RendererCanvasCull::_attach_canvas_item_for_draw(RendererCanvasCull::Item *ci, RendererCanvasCull::Item *p_canvas_clip, RendererCanvasRender::Item **r_z_list, RendererCanvasRender::Item **r_z_last_list, const Transform2D &p_transform, const Rect2 &p_clip_rect, Rect2 p_global_rect, const Color &p_modulate, int p_z, RendererCanvasCull::Item *p_material_owner, bool p_use_canvas_group, RendererCanvasRender::Item *r_canvas_group_from) {
@@ -435,14 +436,21 @@ void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2
 		p_z = ci->z_index;
 	}
 
-	if (ci->sort_y) {
+	if (_is_sort_container(ci)) {
 		if (!p_is_already_y_sorted) {
 			if (ci->ysort_children_count == -1) {
 				ci->ysort_children_count = _count_ysort_children(ci);
 			}
 
 			child_item_count = ci->ysort_children_count + 1;
-			child_items = (Item **)alloca(child_item_count * sizeof(Item *));
+			// DEAD MONEY: large sort roots (key-sorted world layers) would overflow the stack.
+			LocalVector<Item *> heap_items;
+			if (child_item_count > 8192) {
+				heap_items.resize(child_item_count);
+				child_items = heap_items.ptr();
+			} else {
+				child_items = (Item **)alloca(child_item_count * sizeof(Item *));
+			}
 
 			ci->ysort_xform = Transform2D();
 			ci->ysort_modulate = Color(ci->modulate[0] ? 1 / ci->modulate[0] : 0, ci->modulate[1] ? 1 / ci->modulate[1] : 0, ci->modulate[2] ? 1 / ci->modulate[2] : 0, ci->modulate[3] ? 1 / ci->modulate[3] : 0);
@@ -452,8 +460,14 @@ void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2
 			int i = 1;
 			_collect_ysort_children(ci, p_material_owner, Color(1, 1, 1, 1), child_items, i, child_item_count, p_z, p_canvas_cull_mask);
 
-			SortArray<Item *, ItemYSort> sorter;
-			sorter.sort(child_items, child_item_count);
+			// DEAD MONEY: the outermost sort container picks the comparator for the flattened subtree.
+			if (ci->sort_by_key) {
+				SortArray<Item *, ItemKeySort> sorter;
+				sorter.sort(child_items, child_item_count);
+			} else {
+				SortArray<Item *, ItemYSort> sorter;
+				sorter.sort(child_items, child_item_count);
+			}
 
 			for (i = 0; i < child_item_count; i++) {
 				_cull_canvas_item(child_items[i], final_xform * child_items[i]->ysort_xform, p_clip_rect, modulate * child_items[i]->ysort_modulate, child_items[i]->ysort_parent_abs_z_index, r_z_list, r_z_last_list, (Item *)ci->final_clip_owner, (Item *)child_items[i]->material_owner, true, p_canvas_cull_mask, child_items[i]->repeat_size, child_items[i]->repeat_times, child_items[i]->repeat_source_item);
@@ -585,7 +599,7 @@ void RendererCanvasCull::canvas_item_set_parent(RID p_item, RID p_parent) {
 			Item *item_owner = canvas_item_owner.get_or_null(canvas_item->parent);
 			item_owner->child_items.erase(canvas_item);
 
-			if (item_owner->sort_y) {
+			if (_is_sort_container(item_owner)) {
 				_mark_ysort_dirty(item_owner);
 			}
 		}
@@ -605,7 +619,7 @@ void RendererCanvasCull::canvas_item_set_parent(RID p_item, RID p_parent) {
 			item_owner->child_items.push_back(canvas_item);
 			item_owner->children_order_dirty = true;
 
-			if (item_owner->sort_y) {
+			if (_is_sort_container(item_owner)) {
 				_mark_ysort_dirty(item_owner);
 			}
 
@@ -1880,6 +1894,24 @@ void RendererCanvasCull::canvas_item_set_sort_children_by_y(RID p_item, bool p_e
 	_mark_ysort_dirty(canvas_item);
 }
 
+// DEAD MONEY: key-sorted children.
+void RendererCanvasCull::canvas_item_set_sort_children_by_key(RID p_item, bool p_enable) {
+	Item *canvas_item = canvas_item_owner.get_or_null(p_item);
+	ERR_FAIL_NULL(canvas_item);
+
+	canvas_item->sort_by_key = p_enable;
+
+	_mark_ysort_dirty(canvas_item);
+}
+
+// Keys are read at cull time, so a key change needs no invalidation.
+void RendererCanvasCull::canvas_item_set_sort_key(RID p_item, int64_t p_key) {
+	Item *canvas_item = canvas_item_owner.get_or_null(p_item);
+	ERR_FAIL_NULL(canvas_item);
+
+	canvas_item->sort_key = p_key;
+}
+
 void RendererCanvasCull::canvas_item_set_z_index(RID p_item, int p_z) {
 	ERR_FAIL_COND(p_z < RSE::CANVAS_ITEM_Z_MIN || p_z > RSE::CANVAS_ITEM_Z_MAX);
 
@@ -2647,7 +2679,7 @@ bool RendererCanvasCull::free(RID p_rid) {
 				Item *item_owner = canvas_item_owner.get_or_null(canvas_item->parent);
 				item_owner->child_items.erase(canvas_item);
 
-				if (item_owner->sort_y) {
+				if (_is_sort_container(item_owner)) {
 					_mark_ysort_dirty(item_owner);
 				}
 			}
