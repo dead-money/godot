@@ -112,22 +112,30 @@ void StringName::unref() {
 	ERR_FAIL_COND(!configured);
 
 	if (_data && _data->refcount.unref()) {
-		MutexLock lock(Table::mutex);
+		// Report after unlocking: error handlers (script loggers) construct StringNames.
+		String leaked_static_name;
+		{
+			MutexLock lock(Table::mutex);
 
-		if (CoreGlobals::leak_reporting_enabled && _data->static_count.get() > 0) {
-			ERR_PRINT("BUG: Unreferenced static string to 0: " + _data->name);
-		}
-		if (_data->prev) {
-			_data->prev->next = _data->next;
-		} else {
-			const uint32_t idx = _data->hash & Table::TABLE_MASK;
-			Table::table[idx] = _data->next;
+			if (CoreGlobals::leak_reporting_enabled && _data->static_count.get() > 0) {
+				leaked_static_name = _data->name;
+			}
+			if (_data->prev) {
+				_data->prev->next = _data->next;
+			} else {
+				const uint32_t idx = _data->hash & Table::TABLE_MASK;
+				Table::table[idx] = _data->next;
+			}
+
+			if (_data->next) {
+				_data->next->prev = _data->prev;
+			}
+			Table::allocator.free(_data);
 		}
 
-		if (_data->next) {
-			_data->next->prev = _data->prev;
+		if (!leaked_static_name.is_empty()) {
+			ERR_PRINT("BUG: Unreferenced static string to 0: " + leaked_static_name);
 		}
-		Table::allocator.free(_data);
 	}
 
 	_data = nullptr;

@@ -1172,10 +1172,13 @@ bool CSharpLanguage::setup_csharp_script_binding(CSharpScriptBinding &r_script_b
 
 	ERR_FAIL_NULL_V(strong_gchandle.value, false);
 
-	r_script_binding.inited = true;
-	r_script_binding.type_name = type_name;
-	r_script_binding.gchandle = MonoGCHandleData(strong_gchandle, gdmono::GCHandleType::STRONG_HANDLE);
-	r_script_binding.owner = p_object;
+	{
+		MutexLock lock(script_gchandle_release_mutex);
+		r_script_binding.inited = true;
+		r_script_binding.type_name = type_name;
+		r_script_binding.gchandle = MonoGCHandleData(strong_gchandle, gdmono::GCHandleType::STRONG_HANDLE);
+		r_script_binding.owner = p_object;
+	}
 
 	// Tie managed to unmanaged
 	RefCounted *rc = Object::cast_to<RefCounted>(p_object);
@@ -1265,6 +1268,10 @@ GDExtensionBool CSharpLanguage::_instance_binding_reference_callback(void *p_tok
 #endif // DEBUG_ENABLED
 
 	MonoGCHandleData &gchandle = script_binding.gchandle;
+
+	// The .NET finalizer thread releases this handle in godotsharp_internal_refcounted_disposed
+	// while the main thread may be swapping it here.
+	MutexLock lock(CSharpLanguage::get_singleton()->script_gchandle_release_mutex);
 
 	int refcount = rc_owner->get_reference_count();
 

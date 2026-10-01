@@ -203,6 +203,7 @@ void godotsharp_internal_refcounted_disposed(Object *p_ptr, GCHandleIntPtr p_gch
 
 		if (data) {
 			CSharpScriptBinding &script_binding = ((RBMap<Object *, CSharpScriptBinding>::Element *)data)->get();
+			MutexLock lock(CSharpLanguage::get_singleton()->get_script_gchandle_release_mutex());
 			if (script_binding.inited) {
 				if (!script_binding.gchandle.is_released()) {
 					if (rc->get_reference_count() == 1 && script_binding.gchandle.is_weak()) {
@@ -262,15 +263,22 @@ GCHandleIntPtr godotsharp_internal_unmanaged_instance_binding_create_managed(Obj
 	void *data = CSharpLanguage::get_instance_binding_with_setup(p_unmanaged);
 	ERR_FAIL_NULL_V(data, { nullptr });
 	CSharpScriptBinding &script_binding = ((RBMap<Object *, CSharpScriptBinding>::Element *)data)->value();
-	ERR_FAIL_COND_V(!script_binding.inited, { nullptr });
+	// A binding that was set up once keeps its type name after the finalizer thread releases it.
+	ERR_FAIL_COND_V(script_binding.type_name == StringName(), { nullptr });
 
 	MonoGCHandleData &gchandle = script_binding.gchandle;
 
-	// TODO: Possible data race?
-	CRASH_COND(gchandle.get_intptr().value != p_old_gchandle.value);
-
-	CSharpLanguage::get_singleton()->release_script_gchandle(gchandle);
-	script_binding.inited = false;
+	{
+		MutexLock lock(CSharpLanguage::get_singleton()->get_script_gchandle_release_mutex());
+		// The finalizer thread may have released the old handle after the caller read it, and
+		// get_instance_binding_with_setup above then created a new managed instance.
+		if (!gchandle.is_released() && gchandle.get_intptr().value != p_old_gchandle.value) {
+			CRASH_COND(gchandle.is_weak());
+			return gchandle.get_intptr();
+		}
+		gchandle.release();
+		script_binding.inited = false;
+	}
 
 	// Create a new one
 
@@ -288,8 +296,11 @@ GCHandleIntPtr godotsharp_internal_unmanaged_instance_binding_create_managed(Obj
 
 	ERR_FAIL_NULL_V(strong_gchandle.value, { nullptr });
 
-	gchandle = MonoGCHandleData(strong_gchandle, gdmono::GCHandleType::STRONG_HANDLE);
-	script_binding.inited = true;
+	{
+		MutexLock lock(CSharpLanguage::get_singleton()->get_script_gchandle_release_mutex());
+		gchandle = MonoGCHandleData(strong_gchandle, gdmono::GCHandleType::STRONG_HANDLE);
+		script_binding.inited = true;
+	}
 
 	// Tie managed to unmanaged
 	RefCounted *rc = Object::cast_to<RefCounted>(p_unmanaged);

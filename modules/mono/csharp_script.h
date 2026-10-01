@@ -454,6 +454,9 @@ public:
 	const Mutex &get_script_instances_mutex() {
 		return script_instances_mutex;
 	}
+	const Mutex &get_script_gchandle_release_mutex() {
+		return script_gchandle_release_mutex;
+	}
 
 	_FORCE_INLINE_ int get_language_index() {
 		return lang_idx;
